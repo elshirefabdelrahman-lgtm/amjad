@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 88" fill="none">
+  <defs><linearGradient id="silver" x1="12" y1="16" x2="228" y2="76" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset=".45" stop-color="#c3cedb"/><stop offset=".72" stop-color="#f0f5fb"/><stop offset="1" stop-color="#9aaabd"/></linearGradient></defs>
+  <text x="12" y="64" fill="url(#silver)" font-family="Arial,Helvetica,sans-serif" font-size="74" font-weight="900" font-style="italic" letter-spacing="-3">amjad</text>
+  <path d="M18 76h104l8-4H26Z" fill="#aebed0" opacity=".65"/>
+</svg>
