@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.abujassar.com/sitemap.xml
+# Staging: sitemap will be referenced after the official domain is confirmed.

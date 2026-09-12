@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 const root = process.cwd();
-const required = ['index.html', '404.html', 'css/style.css', 'js/main.js', 'images/favicon-48.png', 'images/apple-touch-icon.png', 'images/abu-jassar-logo-512.png', 'images/hero-حداد-مكة-ابو-جسار.webp', 'robots.txt', 'sitemap.xml'];
+const required = ['index.html', '404.html', 'css/style.css', 'js/main.js', 'images/favicon.svg', 'images/apple-touch-icon.png', 'site-config.json', 'robots.txt', 'sitemap.xml'];
 const missingRequired = required.filter(file => !existsSync(join(root, file)));
 if (missingRequired.length) throw new Error(`Missing required files: ${missingRequired.join(', ')}`);
 
@@ -14,12 +14,10 @@ const indexable = [];
 const titles = new Map();
 const descriptions = new Map();
 const canonicals = new Map();
-const expectedPhone = 'tel:+966506008916';
-const expectedWhatsApp = 'https://wa.me/966506008916';
-const expectedEmail = 'mailto:abugassar677@gmail.com';
-const retiredEmail = ['abo053jasr', 'gmail.com'].join('@');
-const officialOrigin = 'https://www.abujassar.com';
-const reviewUrl = 'https://g.page/r/CTEQ6wdCKJFgEBM/review';
+const expectedPhone = 'tel:+966538341379';
+const expectedWhatsApp = 'https://wa.me/966538341379';
+const expectedEmail = 'mailto:alahmramgad@gmail.com';
+const officialOrigin = JSON.parse(readFileSync(join(root,'site-config.json'),'utf8')).origin;
 
 const one = (html, pattern) => html.match(pattern)?.[1]?.trim() ?? '';
 const remember = (map, value, file, label) => {
@@ -32,6 +30,10 @@ for (const file of htmlFiles) {
   const html = readFileSync(file, 'utf8');
   const name = relative(root, file);
   const is404 = name === '404.html';
+  if (!is404 && (!html.includes(expectedPhone) || !html.includes(expectedWhatsApp))) issues.push(`${name}: missing Amjad contact links`);
+  const retiredBrand = ['abu', 'jassar'].join('');
+  const retiredArabic = ['أبو', 'جسار'].join(' ');
+  if (html.toLowerCase().replaceAll(' ', '').includes(retiredBrand) || html.includes(retiredArabic)) issues.push(`${name}: retired brand reference`);
   const title = one(html, /<title>([^<]+)<\/title>/i);
   const description = one(html, /<meta\s+name="description"\s+content="([^"]+)"/i);
   const robots = one(html, /<meta\s+name="robots"\s+content="([^"]+)"/i);
@@ -66,7 +68,7 @@ for (const file of htmlFiles) {
       const data = JSON.parse(match[1]);
       const nodes = data['@graph'] ?? [data];
       for (const node of nodes) {
-        if (node['@type'] !== 'FAQPage') continue;
+    if (node['@type'] !== 'FAQPage') continue;
         for (const item of node.mainEntity ?? []) {
           const question = item.name ?? '';
           const answer = item.acceptedAnswer?.text ?? '';
@@ -107,24 +109,19 @@ if (sitemap.includes('404')) issues.push('sitemap.xml must not include the 404 p
 
 const robotsText = readFileSync(join(root, 'robots.txt'), 'utf8');
 if (!/^User-agent:\s*\*/mi.test(robotsText) || !/^Allow:\s*\/$/mi.test(robotsText)) issues.push('robots.txt must allow crawling');
-if (!robotsText.includes('Sitemap: https://www.abujassar.com/sitemap.xml')) issues.push('robots.txt has an incorrect sitemap reference');
+if (officialOrigin && !robotsText.includes(`Sitemap: ${officialOrigin}/sitemap.xml`)) issues.push('robots.txt has an incorrect sitemap reference');
 
 const homepage = readFileSync(join(root, 'index.html'), 'utf8');
-for (const file of [...htmlFiles, join(root, 'scripts/build.mjs'), join(root, 'sitemap.xml'), join(root, 'robots.txt')]) {
-  if (readFileSync(file, 'utf8').includes(retiredEmail)) issues.push(`${relative(root, file)}: old business email is still present`);
-}
+if (!officialOrigin && indexable.length) issues.push('Unconfirmed domain: staging pages must stay noindex');
 if (!homepage.includes('<!-- Google Search Console verification: insert real token here -->')) issues.push('Homepage is missing the Search Console placeholder');
 if (!homepage.includes(expectedEmail)) issues.push('Homepage is missing the canonical email link');
-if (!homepage.includes('./images/favicon-48.png') || !homepage.includes('./images/apple-touch-icon.png')) issues.push('Homepage is missing PNG favicon declarations');
-if (!homepage.includes('https://www.abujassar.com/images/abu-jassar-logo-512.png')) issues.push('Homepage schema is missing the crawlable PNG business logo');
-if (!homepage.includes(`href="${reviewUrl}" target="_blank" rel="noopener noreferrer"`)) issues.push('Homepage is missing the safe Google review CTA');
-if ((homepage.match(new RegExp(reviewUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) ?? []).length !== 1) issues.push('Homepage must contain exactly one Google review URL');
+if (!homepage.includes('./images/favicon.svg') || !homepage.includes('./images/apple-touch-icon.png')) issues.push('Homepage is missing Amjad icon declarations');
 if (homepage.includes('aggregateRating') || homepage.includes('ratingValue') || homepage.includes('reviewCount')) issues.push('Homepage contains unsupported rating schema');
-if (!homepage.includes('./css/style.css') || !homepage.includes('./js/main.js') || !homepage.includes('./images/hero-حداد-مكة-ابو-جسار.webp')) issues.push('Homepage static asset references are incomplete');
+if (!homepage.includes('./css/style.css') || !homepage.includes('./js/main.js')) issues.push('Homepage static asset references are incomplete');
 if (!readFileSync(join(root, 'css/style.css'), 'utf8').includes('prefers-reduced-motion')) issues.push('CSS is missing prefers-reduced-motion support');
 
 if (issues.length) {
   console.error(`Production QA failed with ${issues.length} issue(s):\n- ${issues.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`Production QA passed: ${indexable.length} indexable pages, ${sitemapUrls.length} sitemap URLs, ${htmlFiles.length} HTML files, valid metadata/JSON-LD, safe external links, and file:// compatible local paths.`);
+console.log(`${officialOrigin ? 'Production' : 'Staging'} QA passed: ${indexable.length} indexable pages, ${sitemapUrls.length} sitemap URLs, ${htmlFiles.length} HTML files, valid metadata/JSON-LD, safe external links, and file:// compatible local paths.${officialOrigin ? '' : ' Confirm the domain to activate indexing for the 18 content pages.'}`);
