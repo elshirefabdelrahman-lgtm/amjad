@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-
-# Staging: sitemap will be referenced after the official domain is confirmed.
+Sitemap: https://www.amjadblacksmith.com/sitemap.xml

@@ -8,6 +8,7 @@ if (missingRequired.length) throw new Error(`Missing required files: ${missingRe
 
 const htmlFiles = readdirSync(root, { recursive: true, withFileTypes: true })
   .filter(entry => entry.isFile() && entry.name.endsWith('.html'))
+  .filter(entry => !entry.parentPath.includes('node_modules') && !entry.parentPath.includes('.git'))
   .map(entry => join(entry.parentPath, entry.name));
 const issues = [];
 const indexable = [];
@@ -38,6 +39,9 @@ for (const file of htmlFiles) {
   const description = one(html, /<meta\s+name="description"\s+content="([^"]+)"/i);
   const robots = one(html, /<meta\s+name="robots"\s+content="([^"]+)"/i);
   const canonical = one(html, /<link\s+rel="canonical"\s+href="([^"]+)"/i);
+  const visibleHtml = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  if (!is404 && officialOrigin && !robots.startsWith('index')) issues.push(`${name}: content page must be indexable`);
+  if (!is404 && (html.match(/<link\s+rel="canonical"/gi) ?? []).length !== 1) issues.push(`${name}: expected one canonical`);
   const h1Count = (html.match(/<h1(?:\s|>)/gi) ?? []).length;
 
   if (!/<html\s+lang="ar"\s+dir="rtl">/i.test(html)) issues.push(`${name}: missing lang="ar" or dir="rtl"`);
@@ -57,6 +61,7 @@ for (const file of htmlFiles) {
   }
   for (const match of html.matchAll(/<img\b[^>]*>/gi)) {
     if (!/\salt="[^"]*"/i.test(match[0])) issues.push(`${name}: image missing alt`);
+    if (!/width="\d+"/i.test(match[0]) || !/height="\d+"/i.test(match[0])) issues.push(`${name}: image dimensions missing`);
   }
   for (const match of html.matchAll(/<a\b[^>]*target="_blank"[^>]*>/gi)) {
     if (!/rel="[^"]*noopener[^"]*"/i.test(match[0]) || !/rel="[^"]*noreferrer[^"]*"/i.test(match[0])) {
@@ -67,13 +72,25 @@ for (const file of htmlFiles) {
     try {
       const data = JSON.parse(match[1]);
       const nodes = data['@graph'] ?? [data];
+      const checkSchema = node => {
+        if (!node || typeof node !== 'object') return;
+        if (node.telephone && node.telephone !== '+966538341379') issues.push(`${name}: incorrect schema phone`);
+        if (node.email && node.email !== 'alahmramgad@gmail.com') issues.push(`${name}: incorrect schema email`);
+        for (const key of ['aggregateRating','review','ratingValue','reviewCount','openingHours','address']) if (key in node) issues.push(`${name}: unconfirmed business schema field ${key}`);
+        if (node['@type'] === 'BreadcrumbList') for (const item of node.itemListElement ?? []) {
+          if (!item.item?.startsWith(`${officialOrigin}/`)) issues.push(`${name}: breadcrumb URL must use official HTTPS origin`);
+          else { const url = new URL(item.item); const route = decodeURIComponent(url.pathname); if (!existsSync(join(root, route, 'index.html'))) issues.push(`${name}: breadcrumb URL has no page`); }
+        }
+        for (const value of Object.values(node)) if (value && typeof value === 'object') checkSchema(value);
+      };
+      checkSchema(data);
       for (const node of nodes) {
     if (node['@type'] !== 'FAQPage') continue;
         for (const item of node.mainEntity ?? []) {
           const question = item.name ?? '';
           const answer = item.acceptedAnswer?.text ?? '';
-          if (!question || !html.includes(question)) issues.push(`${name}: FAQ schema question is not visible`);
-          if (!answer || !html.includes(answer)) issues.push(`${name}: FAQ schema answer is not visible`);
+          if (!question || !visibleHtml.includes(question)) issues.push(`${name}: FAQ schema question is not visible`);
+          if (!answer || !visibleHtml.includes(answer)) issues.push(`${name}: FAQ schema answer is not visible`);
         }
       }
     } catch (error) { issues.push(`${name}: invalid JSON-LD (${error.message})`); }
@@ -89,6 +106,10 @@ for (const file of htmlFiles) {
     for (const property of ['og:type', 'og:locale', 'og:title', 'og:description', 'og:url', 'og:image']) {
       if (!html.includes(`property="${property}"`)) issues.push(`${name}: missing ${property}`);
     }
+    const ogUrl = one(html, /property="og:url"\s+content="([^"]+)"/);
+    if (ogUrl !== canonical) issues.push(`${name}: og:url differs from canonical`);
+    const ogImage = one(html, /property="og:image"\s+content="([^"]+)"/);
+    if (!ogImage.startsWith(`${officialOrigin}/images/`) || !existsSync(join(root,decodeURIComponent(new URL(ogImage).pathname)))) issues.push(`${name}: incorrect or missing social image`);
     if (!html.includes('name="twitter:card"')) issues.push(`${name}: missing twitter:card`);
     if (!html.includes(expectedPhone)) issues.push(`${name}: missing canonical phone link`);
     if (!html.includes(expectedWhatsApp)) issues.push(`${name}: missing canonical WhatsApp link`);
@@ -113,7 +134,7 @@ if (officialOrigin && !robotsText.includes(`Sitemap: ${officialOrigin}/sitemap.x
 
 const homepage = readFileSync(join(root, 'index.html'), 'utf8');
 if (!officialOrigin && indexable.length) issues.push('Unconfirmed domain: staging pages must stay noindex');
-if (!homepage.includes('<!-- Google Search Console verification: insert real token here -->')) issues.push('Homepage is missing the Search Console placeholder');
+if (homepage.includes('google-site-verification') && /content="(?:placeholder|insert[^" ]*)"/i.test(homepage)) issues.push('Homepage contains an invented verification token');
 if (!homepage.includes(expectedEmail)) issues.push('Homepage is missing the canonical email link');
 if (!homepage.includes('./images/favicon.svg') || !homepage.includes('./images/apple-touch-icon.png')) issues.push('Homepage is missing Amjad icon declarations');
 if (homepage.includes('aggregateRating') || homepage.includes('ratingValue') || homepage.includes('reviewCount')) issues.push('Homepage contains unsupported rating schema');

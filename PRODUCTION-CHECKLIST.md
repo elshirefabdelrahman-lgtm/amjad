@@ -1,9 +1,11 @@
 # أمجد حداد مكة — قبل النشر
 
-- أدخل الدومين الحقيقي بصيغة HTTPS في `site-config.json` مكان `origin: null`.
-- شغّل `node scripts/configure-seo.mjs` ثم `pnpm run build`؛ سيُفعّل الفهرسة وcanonical وOpen Graph وsitemap للدومين المعتمد.
-- النسخة الحالية noindex عمدًا لحين تأكيد الدومين؛ ليست جاهزة للفهرسة بعد.
+- الدومين المعتمد: https://www.amjadblacksmith.com/.
+- شغّل `node scripts/configure-seo.mjs` بعد تغيير إعدادات SEO ثم `pnpm run build` للتحقق.
+- صفحات المحتوى الـ18 مفهرسة تقنيًا؛ صفحة 404 فقط noindex. ظهورها الفعلي في Google غير مضمون.
 - راجع اعتماد الصور مع صاحب النشاط؛ لم تتم إضافة ادعاءات عن عملاء أو مشاريع موثقة.
 - لم يُؤكد عنوان متجر أو إحداثيات أو رابط Maps أو Reviews أو حراج لأمجد، لذلك لم تُنقل بيانات نشاط آخر.
-- نسخة Git موروثة: لا تعمل push قبل ربط repository مستقل لأمجد.
-- بعد النشر: أضف الدومين إلى Search Console باستخدام رمز تحقق حقيقي وأرسل sitemap.
+- الريبو المستقل مربوط بالفعل؛ استخدم main بدون force push.
+- بعد وصول التحديث إلى الإنتاج: تحقق من sitemap.xml وrobots.txt وcanonical وعدم وجود noindex على الصفحة الرئيسية.
+- أضف الدومين إلى Search Console وتحقق بملكية DNS الحقيقية، ثم أرسل https://www.amjadblacksmith.com/sitemap.xml واطلب فحص الرئيسية والخدمات.
+- حافظ على بيانات النشاط الفعلية في Google Business Profile إن كان لديك حساب؛ لا تضف عنوان استقبال أو ساعات أو تقييمات غير مؤكدة.
