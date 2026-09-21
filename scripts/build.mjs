@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const required = ['index.html', '404.html', 'css/style.css', 'js/main.js', 'images/favicon.svg', 'images/apple-touch-icon.png', 'site-config.json', 'robots.txt', 'sitemap.xml'];
@@ -20,6 +21,7 @@ const expectedPhone = 'tel:+966538341379';
 const expectedWhatsApp = 'https://wa.me/966538341379';
 const expectedEmail = 'mailto:alahmramgad@gmail.com';
 const officialOrigin = JSON.parse(readFileSync(join(root,'site-config.json'),'utf8')).origin;
+execFileSync(process.execPath, [join(root, 'scripts', 'seo-audit.mjs'), '--check'], { cwd: root, stdio: 'inherit' });
 
 const one = (html, pattern) => html.match(pattern)?.[1]?.trim() ?? '';
 const remember = (map, value, file, label) => {
@@ -110,6 +112,7 @@ for (const file of htmlFiles) {
       checkSchema(data);
       for (const node of nodes) {
     if (node['@type'] !== 'FAQPage') continue;
+        if (!/<details\b/i.test(visibleHtml) || !/<summary\b/i.test(visibleHtml)) issues.push(`${name}: FAQ answers must be present in static details/summary HTML`);
         for (const item of node.mainEntity ?? []) {
           const question = item.name ?? '';
           const answer = item.acceptedAnswer?.text ?? '';
