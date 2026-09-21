@@ -15,6 +15,7 @@ const indexable = [];
 const titles = new Map();
 const descriptions = new Map();
 const canonicals = new Map();
+const longParagraphs = new Map();
 const expectedPhone = 'tel:+966538341379';
 const expectedWhatsApp = 'https://wa.me/966538341379';
 const expectedEmail = 'mailto:alahmramgad@gmail.com';
@@ -51,6 +52,29 @@ for (const file of htmlFiles) {
   if (!robots) issues.push(`${name}: missing robots meta`);
   remember(titles, title, file, 'title');
   remember(descriptions, description, file, 'meta description');
+
+  if (!is404 && (description.length < 130 || description.length > 160)) issues.push(`${name}: meta description must be 130–160 characters (found ${description.length})`);
+  if (/href="(?:\.\.?\/[^"#?]*)?index\.html(?:[?#][^"]*)?"/i.test(html)) issues.push(`${name}: internal link contains index.html`);
+  const bannedPhrases = [
+    ['حلول معدنية', 'مصممة للمكان'].join(' '),
+    ['تنفيذ يبدأ', 'بفهم احتياج موقعك'].join(' '),
+    ['تفاصيل', 'تصنع الفرق'].join(' '),
+    ['السعر مرتبط', 'بتفاصيل العمل'].join(' '),
+    ['أرسل', 'تفاصيل العمل'].join(' '),
+    ['نصل إلى', 'موقع العميل'].join(' '),
+    ['طريقة عمل', 'واضحة'].join(' '),
+    ['تقدير', 'واضح'].join(' '),
+    ['ابدأ من', 'هنا'].join(' '),
+    ['معاينة', 'وقياس'].join(' ')
+  ];
+  for (const phrase of bannedPhrases) if (visibleHtml.includes(phrase)) issues.push(`${name}: banned sibling-site phrase remains (${phrase})`);
+  for (const match of visibleHtml.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi)) {
+    const paragraph = match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (paragraph.split(/\s+/).length <= 20) continue;
+    const found = longParagraphs.get(paragraph) ?? [];
+    found.push(name);
+    longParagraphs.set(paragraph, found);
+  }
 
   if (/(?:href|src)="\/(?!\/)/.test(html)) issues.push(`${name}: root-relative local path fails under file://`);
   for (const match of html.matchAll(/(?:href|src)="([^"#]+)"/g)) {
@@ -127,6 +151,11 @@ for (const url of sitemapUrls) {
   if (!indexable.some(page => page.canonical === url)) issues.push(`sitemap.xml contains non-indexable or unknown URL: ${url}`);
 }
 if (sitemap.includes('404')) issues.push('sitemap.xml must not include the 404 page');
+if ((sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g) ?? []).length !== sitemapUrls.length) issues.push('Every sitemap URL must have a valid lastmod');
+
+for (const [paragraph, files] of longParagraphs) {
+  if (files.length > 1) issues.push(`Duplicate paragraph over 20 words in ${files.join(', ')}: ${paragraph.slice(0, 90)}…`);
+}
 
 const robotsText = readFileSync(join(root, 'robots.txt'), 'utf8');
 if (!/^User-agent:\s*\*/mi.test(robotsText) || !/^Allow:\s*\/$/mi.test(robotsText)) issues.push('robots.txt must allow crawling');
